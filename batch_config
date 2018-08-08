@@ -1,0 +1,59 @@
+#!/usr/bin/env perl6
+
+use Template::Mustache;
+use UUID;
+use JSON::Hjson;
+use CSV::Parser;
+
+
+sub MAIN($Template!, :j(:$config-json), :t(:$config-tsv), :o(:$output-dir)="./") {
+	my $T = Template::Mustache;
+
+	my $templ = $Template.IO.slurp;
+
+	my $max_n = 0;
+	my %configuration;
+	if $config-json {
+		my $json = $config-json.IO.slurp;
+		%configuration = from-hjson($json);
+		for %configuration.values {
+			$max_n = max($max_n, $_.elems);
+		}
+	}
+
+	my $tsv_parser;
+	my $tsv_fh;
+	if $config-tsv {
+		$tsv_fh = open $config-tsv, :r;
+		$tsv_parser = CSV::Parser.new(file_handle => $tsv_fh, contains_header_row => True, field_separator => "\t");
+		$max_n = $config-tsv.IO.lines.elems - 1;
+	}
+
+	
+	for ^$max_n -> $i {
+		my %configuration_sample;
+
+		for %configuration.keys -> $k {
+			if (%configuration{$k}.elems > 1) {
+				%configuration_sample{$k} = %configuration{$k}[$i];
+			} else {
+				%configuration_sample{$k} = %configuration{$k};
+			}
+		}
+
+		my %tsv_sample;
+		if $config-tsv and !$tsv_fh.eof {
+			%tsv_sample = %($tsv_parser.get_line()) unless $tsv_fh.eof;
+			for %tsv_sample.keys -> $k {
+				%configuration_sample{$k} = %tsv_sample{$k};
+			}
+		}
+
+		my $harvest = $T.render($templ, %configuration_sample);
+		my $name = %configuration_sample<job_name> ?? %configuration_sample<job_name> !! UUID.new;
+		mkdir $output-dir;
+		spurt "$output-dir/" ~ $name ~ ".lsf", $harvest;
+	}
+}
+
+# vim: syntax=perl6 ts=2 sw=4 sts=4 sr noet
