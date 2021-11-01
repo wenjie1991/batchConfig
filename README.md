@@ -7,7 +7,7 @@ Prepare batch of bash scripts.
 `batchConfig` is a Raku script, in order to run it, the Raku intepreter should be installed first.
 [Install Raku interpreter](https://rakudo.org/).
 
-Install the depends:
+Install the dependances:
 ```bash
 zef install Template::Mustache JSON::Hjson CSV::Parser
 ```
